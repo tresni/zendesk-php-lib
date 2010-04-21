@@ -31,6 +31,10 @@ THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
 (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
+v1.02 - 01 March 2010
+ * Fixed bug w/ query params in an array
+ * Properly singalize ies to y (entries=>entry)
+ * Attempt to support ticket/request updating
 v1.01 - 10 May 2009
  * Fixed Issue #1 - Need $ on line 223
 v1 - Initial Version
@@ -104,7 +108,7 @@ class Zendesk
             {
                 $query = '?';
                 foreach ($opts['query'] as $key=>$value)
-                    $query .= urlencode($key).'='.urlencode($value);
+                    $query .= urlencode($key).'='.urlencode($value).'&';
                 $url .= $query;
             }
             else
@@ -178,13 +182,20 @@ class Zendesk
                     $xml .= "<$key>$value</$key>";
                 else
                 {
-                    $realkey = substr($node, 0, -1);
+                    $realkey = $this->_singular($page);
                     $xml .= "<$realkey>$value</$realkey>";
                 }
             }
         }
         
         return $xml . "</$node>";
+    }
+    
+    private function _singular($noun)
+    {
+        if (preg_match('/ies$/i', $noun))
+            return preg_replace('/ies$/i', 'y', $noun);
+        else return substr($noun, 0, -1);
     }
     
     function get($page, $args = array())
@@ -201,7 +212,7 @@ class Zendesk
         if (isset($args['id'])) unset($args['id']);
         if (!isset($args['details'])) trigger_error($page . ' details are required');
         
-        $args['data'] = $this->_build_xml($args['details'], substr($page, 0, -1));
+        $args['data'] = $this->_build_xml($args['details'], $this->_singular($page));
         
         // This has to be sent as XML request.
         $output = $this->output;
@@ -212,7 +223,7 @@ class Zendesk
         if ($this->result['code'] == 201) {
             if (preg_match("!http://{$this->account}.zendesk.com/$page/#?(\d+)!i", $this->result['header'], $match))
                 return $match[1];
-            // regexp failed, this is not could and shouldn't happen, but I don't want to return false...
+            // regexp failed, this is not good and shouldn't happen, but I don't want to return false...
             return true;
         }
         return false;
@@ -223,7 +234,10 @@ class Zendesk
         if (!isset($args['id'])) trigger_error($page . ' id is required');
         if (!isset($args['details'])) trigger_error($page . ' details are required');
         
-        $args['data'] = $this->_build_xml($args['details'], substr($page, 0, -1));
+        if ($page == ZENDESK_REQUESTS || ($page == ZENDESK_TICKETS && isset($args['details']['value'])))
+            $args['data'] = $this->_build_xml($args['details'], 'comment');
+        else
+            $args['data'] = $this->_build_xml($args['details'], $this->_singular($page)); 
         
         return $this->_request($page, $args, 'PUT') == 200;
     }
