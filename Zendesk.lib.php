@@ -58,203 +58,203 @@ define('ZENDESK_POSTS', 'posts');
 
 class Zendesk
 {
-    function Zendesk($account, $username, $password, $use_curl = true, $use_https = false)
-    {
-        $this->account = $account;
-        $this->output = ZENDESK_OUTPUT_XML;
+	function Zendesk($account, $username, $password, $use_curl = true, $use_https = false)
+	{
+		$this->account = $account;
+		$this->output = ZENDESK_OUTPUT_XML;
 		$this->secure = $use_https;
-        
-        if (function_exists('curl_init') && $use_curl)
-        {
-            $this->curl = curl_init();
-            curl_setopt($this->curl, CURLOPT_USERPWD, $username . ':' . $password);
-            curl_setopt($this->curl, CURLOPT_RETURNTRANSFER, true);
-            curl_setopt($this->curl, CURLOPT_FOLLOWLOCATION, false);
-            curl_setopt($this->curl, CURLOPT_HEADER, true);
-        }
-        else
-        {
-            $this->username = $username;
-            $this->password = $password;
-        }
-    }
-    
-    function __destruct()
-    {
-        if (isset($this->curl)) curl_close($this->curl);
-    }
-    
-    function set_output($format = ZENDESK_OUTPUT_XML)
-    {
-        if (is_int($format) || is_numeric($format))
-            $this->output = $format;
-        else if (strcasecmp($format, 'json') == 0)
-            $this->output = ZENDESK_OUTPUT_JSON;
-        else
-            $this->output = ZENDESK_OUTPUT_XML;
-    }
+		
+		if (function_exists('curl_init') && $use_curl)
+		{
+			$this->curl = curl_init();
+			curl_setopt($this->curl, CURLOPT_USERPWD, $username . ':' . $password);
+			curl_setopt($this->curl, CURLOPT_RETURNTRANSFER, true);
+			curl_setopt($this->curl, CURLOPT_FOLLOWLOCATION, false);
+			curl_setopt($this->curl, CURLOPT_HEADER, true);
+		}
+		else
+		{
+			$this->username = $username;
+			$this->password = $password;
+		}
+	}
+	
+	function __destruct()
+	{
+		if (isset($this->curl)) curl_close($this->curl);
+	}
+	
+	function set_output($format = ZENDESK_OUTPUT_XML)
+	{
+		if (is_int($format) || is_numeric($format))
+			$this->output = $format;
+		else if (strcasecmp($format, 'json') == 0)
+			$this->output = ZENDESK_OUTPUT_JSON;
+		else
+			$this->output = ZENDESK_OUTPUT_XML;
+	}
 
 	function set_secure($use_https = true)
 	{
 		$this->secure = $use_https;
 	}
-    
-    private function _request($page, $opts, $method = 'GET')
-    {
-        $this->result = array('header' => null, 'content' => null);
-        
-        $url = 'http' . ( $this->secure ? 's' : '' ) . "://{$this->account}.zendesk.com/$page";
-        if (isset($opts['id']))
-            $url .= "/{$opts['id']}";
-        $url .=  $this->output == ZENDESK_OUTPUT_JSON ? '.js' : '.xml';// . $query;
-        
-        if (isset($opts['query']))
-        {
-            if (is_array($opts['query']))
-            {
-                $query = '?';
-                foreach ($opts['query'] as $key=>$value)
-                    $query .= urlencode($key).'='.urlencode($value).'&';
-                $url .= $query;
-            }
-            else
-                $url .= '?'.$opts['query'];
-        }
-        
-        if (isset($this->curl))
-        {
-            curl_setopt($this->curl, CURLOPT_URL, $url);
-            curl_setopt($this->curl, CURLOPT_CUSTOMREQUEST, $method);
+	
+	private function _request($page, $opts, $method = 'GET')
+	{
+		$this->result = array('header' => null, 'content' => null);
+		
+		$url = 'http' . ( $this->secure ? 's' : '' ) . "://{$this->account}.zendesk.com/$page";
+		if (isset($opts['id']))
+			$url .= "/{$opts['id']}";
+		$url .= $this->output == ZENDESK_OUTPUT_JSON ? '.js' : '.xml';// . $query;
+		
+		if (isset($opts['query']))
+		{
+			if (is_array($opts['query']))
+			{
+				$query = '?';
+				foreach ($opts['query'] as $key=>$value)
+					$query .= urlencode($key).'='.urlencode($value).'&';
+				$url .= $query;
+			}
+			else
+				$url .= '?'.$opts['query'];
+		}
+		
+		if (isset($this->curl))
+		{
+			curl_setopt($this->curl, CURLOPT_URL, $url);
+			curl_setopt($this->curl, CURLOPT_CUSTOMREQUEST, $method);
 			// HACK: we could include the Zendesk certificate CA info here, but that's a huge increase in filesize.
 			if ($this->secure) curl_setopt($this->curl, CURLOPT_SSL_VERIFYPEER, false);
-            
-            $headers = array();
-            if (isset($opts['data']))
-            {
-                $headers = array(
-                    'Content-type: application/xml',
-                    'Content-Length: ' . strlen($opts['data'])
-                );
-                
-                curl_setopt($this->curl, CURLOPT_POSTFIELDS, $opts['data']);
-            }
-            
-            if (isset($opts['on-behalf-of']))
-                $headers[] = 'X-On-Behalf-Of: ' . $opts['on-behalf-of'];
+			
+			$headers = array();
+			if (isset($opts['data']))
+			{
+				$headers = array(
+					'Content-type: application/xml',
+					'Content-Length: ' . strlen($opts['data'])
+				);
+				
+				curl_setopt($this->curl, CURLOPT_POSTFIELDS, $opts['data']);
+			}
+			
+			if (isset($opts['on-behalf-of']))
+				$headers[] = 'X-On-Behalf-Of: ' . $opts['on-behalf-of'];
  
-            curl_setopt($this->curl, CURLOPT_HTTPHEADER, $headers);
+			curl_setopt($this->curl, CURLOPT_HTTPHEADER, $headers);
 
-            $result = curl_exec($this->curl);
-            $result = preg_split('/\r?\n\r?\n/', $result, 2);
-            $this->result = array('header' => $result[0], 'content' => $result[1], 'code' => curl_getinfo($this->curl, CURLINFO_HTTP_CODE));
-        }
-        else
-        {
-            $settings = array(
-                'http' => array(
-                    'method' => $method,
-                    'header' => 'Authorization: Basic ' . base64_encode("{$this->username}:{$this->password}") . "\r\n",
-                    'max_redirects' => 1
-                )
-            );
-            
-            if (isset($opts['data']))
-            {
-                $settings['http']['content'] = $opts['data'];
-                $settings['http']['header'] .= "Content-type: application/xml\r\n";
-            }
-            
-            if (isset($opts['on-behalf-of']))
-                $settings['http']['header'] .= "X-On-Behalf-Of: {$opts['on-behalf-of']}\r\n";
-                
-            $settings['http']['header'] = substr($settings['http']['header'],0, -2);
-            
-            $context = stream_context_create($settings);
-            $this->result['content'] = @file_get_contents($url, false, $context);
-            $this->result['header'] = implode("\n", $http_response_header);
-            $this->result['code'] = substr($http_response_header[0], 9, 3);
-        }
-        return $this->result['code'];
-    }
-    
-    private function _build_xml($data, $node, $is_array = false)
-    {
-        $xml = "<$node" . ($is_array ? ' type=\'array\'>' : '>');
-        foreach ($data as $key=>$value)
-        {
-            if (is_array($value))
-                $xml .= $this->_build_xml($value, $key, true);
-            else
-            {
-                if (!is_int($key))
-                    $xml .= "<$key>$value</$key>";
-                else
-                {
-                    $realkey = $this->_singular($page);
-                    $xml .= "<$realkey>$value</$realkey>";
-                }
-            }
-        }
-        
-        return $xml . "</$node>";
-    }
-    
-    private function _singular($noun)
-    {
-        if (preg_match('/ies$/i', $noun))
-            return preg_replace('/ies$/i', 'y', $noun);
-        else return substr($noun, 0, -1);
-    }
-    
-    function get($page, $args = array())
-    {
-        if (200 == $this->_request($page, $args))
-            return $this->result['content'];
-        else
-            return false;
-    }
-    
-    function create($page, $args)
-    {
-        // We unset $args['id'] as we never use it in a create.
-        if (isset($args['id'])) unset($args['id']);
-        if (!isset($args['details'])) trigger_error($page . ' details are required');
-        
-        $args['data'] = $this->_build_xml($args['details'], $this->_singular($page));
-        
-        // This has to be sent as XML request.
-        $output = $this->output;
-        $this->output = ZENDESK_OUTPUT_XML;
-        $this->_request($page, $args, 'POST');
-        $this->output = $output;
-        
-        if ($this->result['code'] == 201) {
-            if (preg_match("!https?://{$this->account}.zendesk.com/$page/#?(\d+)!i", $this->result['header'], $match))
-                return $match[1];
-            // regexp failed, this is not good and shouldn't happen, but I don't want to return false...
-            return true;
-        }
-        return false;
-    }
-    
-    function update($page, $args)
-    {
-        if (!isset($args['id'])) trigger_error($page . ' id is required');
-        if (!isset($args['details'])) trigger_error($page . ' details are required');
-        
-        if ($page == ZENDESK_REQUESTS || ($page == ZENDESK_TICKETS && isset($args['details']['value'])))
-            $args['data'] = $this->_build_xml($args['details'], 'comment');
-        else
-            $args['data'] = $this->_build_xml($args['details'], $this->_singular($page)); 
-        
-        return $this->_request($page, $args, 'PUT') == 200;
-    }
-    
-    function delete($page, $args)
-    {
-        if (isset($args) && !is_array($args)) $args = array('id' => $args);
-        if (!isset($args['id'])) trigger_error($page . ' id is required');
-        
-        return $this->_request($page, $args, 'DELETE') == 200;
-    }
+			$result = curl_exec($this->curl);
+			$result = preg_split('/\r?\n\r?\n/', $result, 2);
+			$this->result = array('header' => $result[0], 'content' => $result[1], 'code' => curl_getinfo($this->curl, CURLINFO_HTTP_CODE));
+		}
+		else
+		{
+			$settings = array(
+				'http' => array(
+					'method' => $method,
+					'header' => 'Authorization: Basic ' . base64_encode("{$this->username}:{$this->password}") . "\r\n",
+					'max_redirects' => 1
+				)
+			);
+			
+			if (isset($opts['data']))
+			{
+				$settings['http']['content'] = $opts['data'];
+				$settings['http']['header'] .= "Content-type: application/xml\r\n";
+			}
+			
+			if (isset($opts['on-behalf-of']))
+				$settings['http']['header'] .= "X-On-Behalf-Of: {$opts['on-behalf-of']}\r\n";
+				
+			$settings['http']['header'] = substr($settings['http']['header'],0, -2);
+			
+			$context = stream_context_create($settings);
+			$this->result['content'] = @file_get_contents($url, false, $context);
+			$this->result['header'] = implode("\n", $http_response_header);
+			$this->result['code'] = substr($http_response_header[0], 9, 3);
+		}
+		return $this->result['code'];
+	}
+	
+	private function _build_xml($data, $node, $is_array = false)
+	{
+		$xml = "<$node" . ($is_array ? ' type=\'array\'>' : '>');
+		foreach ($data as $key=>$value)
+		{
+			if (is_array($value))
+				$xml .= $this->_build_xml($value, $key, true);
+			else
+			{
+				if (!is_int($key))
+					$xml .= "<$key>$value</$key>";
+				else
+				{
+					$realkey = $this->_singular($page);
+					$xml .= "<$realkey>$value</$realkey>";
+				}
+			}
+		}
+		
+		return $xml . "</$node>";
+	}
+	
+	private function _singular($noun)
+	{
+		if (preg_match('/ies$/i', $noun))
+			return preg_replace('/ies$/i', 'y', $noun);
+		else return substr($noun, 0, -1);
+	}
+	
+	function get($page, $args = array())
+	{
+		if (200 == $this->_request($page, $args))
+			return $this->result['content'];
+		else
+			return false;
+	}
+	
+	function create($page, $args)
+	{
+		// We unset $args['id'] as we never use it in a create.
+		if (isset($args['id'])) unset($args['id']);
+		if (!isset($args['details'])) trigger_error($page . ' details are required');
+		
+		$args['data'] = $this->_build_xml($args['details'], $this->_singular($page));
+		
+		// This has to be sent as XML request.
+		$output = $this->output;
+		$this->output = ZENDESK_OUTPUT_XML;
+		$this->_request($page, $args, 'POST');
+		$this->output = $output;
+		
+		if ($this->result['code'] == 201) {
+			if (preg_match("!https?://{$this->account}.zendesk.com/$page/#?(\d+)!i", $this->result['header'], $match))
+				return $match[1];
+			// regexp failed, this is not good and shouldn't happen, but I don't want to return false...
+			return true;
+		}
+		return false;
+	}
+	
+	function update($page, $args)
+	{
+		if (!isset($args['id'])) trigger_error($page . ' id is required');
+		if (!isset($args['details'])) trigger_error($page . ' details are required');
+		
+		if ($page == ZENDESK_REQUESTS || ($page == ZENDESK_TICKETS && isset($args['details']['value'])))
+			$args['data'] = $this->_build_xml($args['details'], 'comment');
+		else
+			$args['data'] = $this->_build_xml($args['details'], $this->_singular($page)); 
+		
+		return $this->_request($page, $args, 'PUT') == 200;
+	}
+	
+	function delete($page, $args)
+	{
+		if (isset($args) && !is_array($args)) $args = array('id' => $args);
+		if (!isset($args['id'])) trigger_error($page . ' id is required');
+		
+		return $this->_request($page, $args, 'DELETE') == 200;
+	}
 }
