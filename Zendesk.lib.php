@@ -58,10 +58,11 @@ define('ZENDESK_POSTS', 'posts');
 
 class Zendesk
 {
-    function Zendesk($account, $username, $password, $use_curl = true)
+    function Zendesk($account, $username, $password, $use_curl = true, $use_https = false)
     {
         $this->account = $account;
         $this->output = ZENDESK_OUTPUT_XML;
+		$this->secure = $use_https;
         
         if (function_exists('curl_init') && $use_curl)
         {
@@ -92,12 +93,17 @@ class Zendesk
         else
             $this->output = ZENDESK_OUTPUT_XML;
     }
+
+	function set_secure($use_https = true)
+	{
+		$this->secure = $use_https;
+	}
     
     private function _request($page, $opts, $method = 'GET')
     {
         $this->result = array('header' => null, 'content' => null);
         
-        $url = "http://{$this->account}.zendesk.com/$page";
+        $url = 'http' . ( $this->secure ? 's' : '' ) . "://{$this->account}.zendesk.com/$page";
         if (isset($opts['id']))
             $url .= "/{$opts['id']}";
         $url .=  $this->output == ZENDESK_OUTPUT_JSON ? '.js' : '.xml';// . $query;
@@ -119,6 +125,8 @@ class Zendesk
         {
             curl_setopt($this->curl, CURLOPT_URL, $url);
             curl_setopt($this->curl, CURLOPT_CUSTOMREQUEST, $method);
+			// HACK: we could include the Zendesk certificate CA info here, but that's a huge increase in filesize.
+			if ($this->secure) curl_setopt($this->curl, CURLOPT_SSL_VERIFYPEER, false);
             
             $headers = array();
             if (isset($opts['data']))
@@ -221,7 +229,7 @@ class Zendesk
         $this->output = $output;
         
         if ($this->result['code'] == 201) {
-            if (preg_match("!http://{$this->account}.zendesk.com/$page/#?(\d+)!i", $this->result['header'], $match))
+            if (preg_match("!https?://{$this->account}.zendesk.com/$page/#?(\d+)!i", $this->result['header'], $match))
                 return $match[1];
             // regexp failed, this is not good and shouldn't happen, but I don't want to return false...
             return true;
