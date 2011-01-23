@@ -2,7 +2,7 @@
 /*
 Zendesk PHP Library
 zendesk.php
-(c) 2009 Brian Hartvigsen
+(c) 2011 Brian Hartvigsen
 All rights reserved.
 
 Redistribution and use in source and binary forms, with or without
@@ -31,6 +31,9 @@ THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
 (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
+CURRENT - 22 January 2011
+ * Fixed bug with dictionary elements being called arrays
+ * Added support for HTTPS (Issue #5)
 v1.02 - 01 March 2010
  * Fixed bug w/ query params in an array
  * Properly singalize ies to y (entries=>entry)
