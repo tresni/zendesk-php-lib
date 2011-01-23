@@ -183,14 +183,18 @@ class Zendesk
 		foreach ($data as $key=>$value)
 		{
 			if (is_array($value))
-				$xml .= $this->_build_xml($value, $key, true);
+			{
+				$is_array = !is_int($key);
+				$k = $is_array ? $key : $this->_singular($node);
+				$xml .= $this->_build_xml($value, $k, $is_array);
+			}
 			else
 			{
 				if (!is_int($key))
 					$xml .= "<$key>$value</$key>";
 				else
 				{
-					$realkey = $this->_singular($page);
+					$realkey = $this->_singular($node);
 					$xml .= "<$realkey>$value</$realkey>";
 				}
 			}
