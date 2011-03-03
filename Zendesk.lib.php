@@ -111,7 +111,7 @@ class Zendesk
 		$url = 'http' . ( $this->secure ? 's' : '' ) . "://{$this->account}.zendesk.com/$page";
 		if (isset($opts['id']))
 			$url .= "/{$opts['id']}";
-		$url .= $this->output == ZENDESK_OUTPUT_JSON ? '.js' : '.xml';// . $query;
+		$url .= $this->output == ZENDESK_OUTPUT_JSON ? '.json' : '.xml';
 		
 		if (isset($opts['query']))
 		{
