@@ -31,6 +31,8 @@ THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
 (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
+SVN - 22 March 2011
+ * Fixed handling of XML entities by using <![CDATA[]]>
 SVN - 02 March 2011
  * Added support for UTF-8 (Issue #6)
 SVN - 22 January 2011
@@ -182,6 +184,15 @@ class Zendesk
 		return $this->result['code'];
 	}
 	
+	private function _xml_tag($tagName, $value)
+	{	
+		// Check to see if we have embeded CDATA end sequences
+		if(strstr($value, ']]>') !== FALSE) {
+			$value = preg_replace('/]]>/',']]]]><![CDATA[>', $value);
+		}
+		return "<$tagName>$value</$tagName>";
+	}
+	
 	private function _build_xml($data, $node, $is_array = false)
 	{
 		$xml = "<$node" . ($is_array ? ' type=\'array\'>' : '>');
@@ -195,13 +206,7 @@ class Zendesk
 			}
 			else
 			{
-				if (!is_int($key))
-					$xml .= "<$key>$value</$key>";
-				else
-				{
-					$realkey = $this->_singular($node);
-					$xml .= "<$realkey>$value</$realkey>";
-				}
+				$xml .= $this->_xml_tag(is_int(key) ? $this->_singular($node) : $key, $value);
 			}
 		}
 		
