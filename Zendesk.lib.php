@@ -206,7 +206,7 @@ class Zendesk
 			}
 			else
 			{
-				$xml .= $this->_xml_tag(is_int(key) ? $this->_singular($node) : $key, $value);
+				$xml .= $this->_xml_tag(is_int($key) ? $this->_singular($node) : $key, $value);
 			}
 		}
 		
