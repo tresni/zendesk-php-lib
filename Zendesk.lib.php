@@ -31,13 +31,19 @@ THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
 (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
+SVN - 24 March 2011
+ * Better handling of multiple headers (100 Continue) sent to cURL (issue #10)
+SVN - 23 March 2011
+ * Fixed lack of $ when checking key (issue #9)
 SVN - 22 March 2011
- * Fixed handling of XML entities by using <![CDATA[]]>
+ * Fixed handling of XML entities by using <![CDATA[]]> (issue #8)
+SVN - 03 March 2011
+ * Fixes call for JSON response (issue #7)
 SVN - 02 March 2011
- * Added support for UTF-8 (Issue #6)
+ * Added support for UTF-8 (issue #6)
 SVN - 22 January 2011
  * Fixed bug with dictionary elements being called arrays
- * Added support for HTTPS (Issue #5)
+ * Added support for HTTPS (issue #5)
 v1.02 - 01 March 2010
  * Fixed bug w/ query params in an array
  * Properly singalize ies to y (entries=>entry)
@@ -152,8 +158,10 @@ class Zendesk
 			curl_setopt($this->curl, CURLOPT_HTTPHEADER, $headers);
 
 			$result = curl_exec($this->curl);
-			$result = preg_split('/\r?\n\r?\n/', $result, 2);
-			$this->result = array('header' => $result[0], 'content' => $result[1], 'code' => curl_getinfo($this->curl, CURLINFO_HTTP_CODE));
+			$info = curl_getinfo($this->curl);
+			$header = substr($result,0,$info['header_size']);
+			$body = substr($result, $info['header_size']);
+			$this->result = array('header' => $header, 'content' => $body, 'code' => $info['http_code']);
 		}
 		else
 		{
