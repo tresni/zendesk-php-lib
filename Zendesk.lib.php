@@ -192,6 +192,16 @@ class Zendesk
 		return $this->result['code'];
 	}
 	
+	private function _request_force_xml($page, $opts, $method)
+	{
+		$output = $this->output;
+		$this->output = ZENDESK_OUTPUT_XML;
+		$result = $this->_request($page, $args, 'POST');
+		$this->output = $output;
+		
+		return $result;
+	}
+	
 	private function _xml_tag($tagName, $value)
 	{	
 		// Check to see if we have embeded CDATA end sequences
@@ -244,12 +254,7 @@ class Zendesk
 		
 		$args['data'] = $this->_build_xml($args['details'], $this->_singular($page));
 		
-		// This has to be sent as XML request.
-		$output = $this->output;
-		$this->output = ZENDESK_OUTPUT_XML;
-		$this->_request($page, $args, 'POST');
-		$this->output = $output;
-		
+		$this->_request_force_xml($page, $args, 'POST');		
 		if ($this->result['code'] == 201) {
 			if (preg_match("!https?://{$this->account}.zendesk.com/$page/#?(\d+)!i", $this->result['header'], $match))
 				return $match[1];
@@ -269,7 +274,7 @@ class Zendesk
 		else
 			$args['data'] = $this->_build_xml($args['details'], $this->_singular($page)); 
 		
-		return $this->_request($page, $args, 'PUT') == 200;
+		return $this->_request_force_xml($page, $args, 'PUT') == 200;
 	}
 	
 	function delete($page, $args)
@@ -277,6 +282,6 @@ class Zendesk
 		if (isset($args) && !is_array($args)) $args = array('id' => $args);
 		if (!isset($args['id'])) trigger_error($page . ' id is required');
 		
-		return $this->_request($page, $args, 'DELETE') == 200;
+		return $this->_request_force_xml($page, $args, 'DELETE') == 200;
 	}
 }
