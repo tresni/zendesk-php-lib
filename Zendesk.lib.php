@@ -31,6 +31,8 @@ THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
 (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
+SVN - 15 May 2011
+ * Fixed POST, DELETE, PUT handling as per documentation
 SVN - 24 March 2011
  * Better handling of multiple headers (100 Continue) sent to cURL (issue #10)
 SVN - 23 March 2011
@@ -55,19 +57,24 @@ v1 - Initial Version
 define('ZENDESK_OUTPUT_XML', 0);
 define('ZENDESK_OUTPUT_JSON', 1);
 
-define('ZENDESK_USERS', 'users');
-define('ZENDESK_TICKETS', 'tickets');
-define('ZENDESK_RULES', 'rules');
-define('ZENDESK_VIEWS', ZENDESK_RULES);
-define('ZENDESK_REQUESTS', 'requests');
-define('ZENDESK_SEARCH', 'search');
-define('ZENDESK_ATTACHMENTS', 'attachments');
-define('ZENDESK_TAGS', 'tags');
-define('ZENDESK_ORGANIZATIONS', 'organizations');
-define('ZENDESK_GROUPS', 'groups');
-define('ZENDESK_FORUMS', 'forums');
 define('ZENDESK_ENTRIES', 'entries');
+define('ZENDESK_FORUMS', 'forums');
+define('ZENDESK_GROUPS', 'groups');
+define('ZENDESK_MACROS', 'macros');
+define('ZENDESK_ORGANIZATIONS', 'organizations');
 define('ZENDESK_POSTS', 'posts');
+define('ZENDESK_REQUESTS', 'requests');
+define('ZENDESK_RULES', 'rules');
+define('ZENDESK_SEARCH', 'search');
+define('ZENDESK_TAGS', 'tags');
+define('ZENDESK_TICKETS', 'tickets');
+define('ZENDESK_TICKET_FIELDS', 'ticket_fields');
+define('ZENDESK_UPLOADS', 'uploads'); // not currently supported!!!
+define('ZENDESK_USERS', 'users');
+
+// Aliases
+define('ZENDESK_ATTACHMENTS', ZENDESK_UPLOADS);
+define('ZENDESK_VIEWS', ZENDESK_RULES);
 
 class Zendesk
 {
@@ -196,7 +203,7 @@ class Zendesk
 	{
 		$output = $this->output;
 		$this->output = ZENDESK_OUTPUT_XML;
-		$result = $this->_request($page, $args, 'POST');
+		$result = $this->_request($page, $opts, 'POST');
 		$this->output = $output;
 		
 		return $result;
@@ -251,10 +258,17 @@ class Zendesk
 		// We unset $args['id'] as we never use it in a create.
 		if (isset($args['id'])) unset($args['id']);
 		if (!isset($args['details'])) trigger_error($page . ' details are required');
+
+		// To open a new ticket as an end-user, the request goes to requests.xml, but the root
+		// element is <ticket> this allows that.
+		if ($page == ZENDESK_REQUESTS)
+			$root = 'ticket';
+		else
+			$root = $this->_singular($page);
+						
+		$args['data'] = $this->_build_xml($args['details'], $root);
 		
-		$args['data'] = $this->_build_xml($args['details'], $this->_singular($page));
-		
-		$this->_request_force_xml($page, $args, 'POST');		
+		$this->_request_force_xml($page, $args, 'POST');
 		if ($this->result['code'] == 201) {
 			if (preg_match("!https?://{$this->account}.zendesk.com/$page/#?(\d+)!i", $this->result['header'], $match))
 				return $match[1];
