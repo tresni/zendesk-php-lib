@@ -203,7 +203,7 @@ class Zendesk
 	{
 		$output = $this->output;
 		$this->output = ZENDESK_OUTPUT_XML;
-		$result = $this->_request($page, $opts, 'POST');
+		$result = $this->_request($page, $opts, $method);
 		$this->output = $output;
 		
 		return $result;
