@@ -215,7 +215,7 @@ class Zendesk
 		if(strstr($value, ']]>') !== FALSE) {
 			$value = preg_replace('/]]>/',']]]]><![CDATA[>', $value);
 		}
-		return "<$tagName>$value</$tagName>";
+		return "<$tagName><![CDATA[$value]]></$tagName>";
 	}
 	
 	private function _build_xml($data, $node, $is_array = false)
