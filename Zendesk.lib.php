@@ -152,8 +152,7 @@ class Zendesk
 			if (isset($opts['data']))
 			{
 				$headers = array(
-					'Content-type: application/xml; charset=utf-8',
-					'Content-Length: ' . mb_strlen($opts['data'])
+					'Content-type: application/xml; charset=utf-8'
 				);
 				
 				curl_setopt($this->curl, CURLOPT_POSTFIELDS, $opts['data']);
