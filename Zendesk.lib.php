@@ -209,33 +209,30 @@ class Zendesk
 		return $result;
 	}
 	
-	private function _xml_tag($tagName, $value)
-	{	
-		// Check to see if we have embeded CDATA end sequences
-		if(strstr($value, ']]>') !== FALSE) {
-			$value = preg_replace('/]]>/',']]]]><![CDATA[>', $value);
+	private function _parse_data($dom, $parentElem, $data, $node, $is_array = false)
+	{
+		$elem = $dom->createElement($node);
+		$parentElem->appendChild($elem);
+		if ($is_array) {
+			$elem->setAttribute('type', 'array');
 		}
-		return "<$tagName><![CDATA[$value]]></$tagName>";
+		if (is_array($data)) {
+			foreach ($data as $key=>$value)
+			{
+				$k = !is_int($key) ? $key : $this->_singular($node);
+				$this->_parse_data($dom, $elem, $value, $k, $is_array);
+			}
+		} else {
+			$cdata = $dom->createCDATASection($data);
+			$elem->appendChild($cdata);
+		}
 	}
 	
 	private function _build_xml($data, $node, $is_array = false)
 	{
-		$xml = "<$node" . ($is_array ? ' type=\'array\'>' : '>');
-		foreach ($data as $key=>$value)
-		{
-			if (is_array($value))
-			{
-				$is_array = !is_int($key);
-				$k = $is_array ? $key : $this->_singular($node);
-				$xml .= $this->_build_xml($value, $k, $is_array);
-			}
-			else
-			{
-				$xml .= $this->_xml_tag(is_int($key) ? $this->_singular($node) : $key, $value);
-			}
-		}
-		
-		return $xml . "</$node>";
+		$dom = new DOMDocument('1.0', 'utf-8');	
+		$this->_parse_data($dom, $dom, $data, $node);
+		return $dom->saveXML();
 	}
 	
 	private function _singular($noun)
@@ -267,7 +264,7 @@ class Zendesk
 			$root = $this->_singular($page);
 						
 		$args['data'] = $this->_build_xml($args['details'], $root);
-		
+		return $args['data'];
 		$this->_request_force_xml($page, $args, 'POST');
 		if ($this->result['code'] == 201) {
 			if (preg_match("!https?://{$this->account}.zendesk.com/$page/#?(\d+)!i", $this->result['header'], $match))
