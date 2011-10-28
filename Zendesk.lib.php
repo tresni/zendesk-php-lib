@@ -264,7 +264,6 @@ class Zendesk
 			$root = $this->_singular($page);
 						
 		$args['data'] = $this->_build_xml($args['details'], $root);
-		return $args['data'];
 		$this->_request_force_xml($page, $args, 'POST');
 		if ($this->result['code'] == 201) {
 			if (preg_match("!https?://{$this->account}.zendesk.com/$page/#?(\d+)!i", $this->result['header'], $match))
