@@ -78,7 +78,7 @@ define('ZENDESK_VIEWS', ZENDESK_RULES);
 
 class Zendesk
 {
-	function Zendesk($account, $username, $password, $use_curl = true, $use_https = false)
+	function Zendesk($account, $username, $password, $use_curl = true, $use_https = true)
 	{
 		$this->account = $account;
 		$this->output = ZENDESK_OUTPUT_XML;
@@ -123,7 +123,7 @@ class Zendesk
 	{
 		$this->result = array('header' => null, 'content' => null);
 		
-		$url = 'http' . ( $this->secure ? 's' : '' ) . "://{$this->account}.zendesk.com/$page";
+		$url = 'http' . ( $this->secure ? 's' : '' ) . "://{$this->account}.zendesk.com/api/v2/$page";
 		if (isset($opts['id']))
 			$url .= "/{$opts['id']}";
 		$url .= $this->output == ZENDESK_OUTPUT_JSON ? '.json' : '.xml';
