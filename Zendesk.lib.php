@@ -31,6 +31,8 @@ THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
 (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
+GIT - 29 Oct 2013
+ * Start support for Zendesk REST API v2
 SVN - 15 May 2011
  * Fixed POST, DELETE, PUT handling as per documentation
 SVN - 24 March 2011
@@ -54,8 +56,6 @@ v1.01 - 10 May 2009
  * Fixed Issue #1 - Need $ on line 223
 v1 - Initial Version
 */
-define('ZENDESK_OUTPUT_XML', 0);
-define('ZENDESK_OUTPUT_JSON', 1);
 
 define('ZENDESK_ENTRIES', 'entries');
 define('ZENDESK_FORUMS', 'forums');
@@ -71,17 +71,16 @@ define('ZENDESK_TICKETS', 'tickets');
 define('ZENDESK_TICKET_FIELDS', 'ticket_fields');
 define('ZENDESK_UPLOADS', 'uploads'); // not currently supported!!!
 define('ZENDESK_USERS', 'users');
+define('ZENDESK_VIEWS', 'views');
 
 // Aliases
 define('ZENDESK_ATTACHMENTS', ZENDESK_UPLOADS);
-define('ZENDESK_VIEWS', ZENDESK_RULES);
 
 class Zendesk
 {
 	function Zendesk($account, $username, $password, $use_curl = true, $use_https = true)
 	{
 		$this->account = $account;
-		$this->output = ZENDESK_OUTPUT_XML;
 		$this->secure = $use_https;
 		
 		if (function_exists('curl_init') && $use_curl)
@@ -104,16 +103,6 @@ class Zendesk
 		if (isset($this->curl)) curl_close($this->curl);
 	}
 	
-	function set_output($format = ZENDESK_OUTPUT_XML)
-	{
-		if (is_int($format) || is_numeric($format))
-			$this->output = $format;
-		else if (strcasecmp($format, 'json') == 0)
-			$this->output = ZENDESK_OUTPUT_JSON;
-		else
-			$this->output = ZENDESK_OUTPUT_XML;
-	}
-
 	function set_secure($use_https = true)
 	{
 		$this->secure = $use_https;
@@ -123,10 +112,10 @@ class Zendesk
 	{
 		$this->result = array('header' => null, 'content' => null);
 		
-		$url = 'http' . ( $this->secure ? 's' : '' ) . "://{$this->account}.zendesk.com/api/v2/$page";
+		$url = 'http' . ( $this->secure ? 's' : '' ) . "://{$this->account}/api/v2/$page";
 		if (isset($opts['id']))
 			$url .= "/{$opts['id']}";
-		$url .= $this->output == ZENDESK_OUTPUT_JSON ? '.json' : '.xml';
+		$url .= '.json';
 		
 		if (isset($opts['query']))
 		{
@@ -152,7 +141,8 @@ class Zendesk
 			if (isset($opts['data']))
 			{
 				$headers = array(
-					'Content-type: application/xml; charset=utf-8'
+					'Content-Type: application/json; charset=utf-8',
+					'Accept: application/json'
 				);
 				
 				curl_setopt($this->curl, CURLOPT_POSTFIELDS, $opts['data']);
@@ -182,7 +172,8 @@ class Zendesk
 			if (isset($opts['data']))
 			{
 				$settings['http']['content'] = $opts['data'];
-				$settings['http']['header'] .= "Content-type: application/xml; charset=utf-8\r\n";
+				$settings['http']['header'] .= "Content-type: application/json; charset=utf-8\r\n" .
+											   "Accept: application/json\r\n";
 			}
 			
 			if (isset($opts['on-behalf-of']))
@@ -196,45 +187,6 @@ class Zendesk
 			$this->result['code'] = substr($http_response_header[0], 9, 3);
 		}
 		return $this->result['code'];
-	}
-	
-	private function _request_force_xml($page, $opts, $method)
-	{
-		$output = $this->output;
-		$this->output = ZENDESK_OUTPUT_XML;
-		$result = $this->_request($page, $opts, $method);
-		$this->output = $output;
-		
-		return $result;
-	}
-	
-	private function _xml_tag($tagName, $value)
-	{	
-		// Check to see if we have embeded CDATA end sequences
-		if(strstr($value, ']]>') !== FALSE) {
-			$value = preg_replace('/]]>/',']]]]><![CDATA[>', $value);
-		}
-		return "<$tagName><![CDATA[$value]]></$tagName>";
-	}
-	
-	private function _build_xml($data, $node, $is_array = false)
-	{
-		$xml = "<$node" . ($is_array ? ' type=\'array\'>' : '>');
-		foreach ($data as $key=>$value)
-		{
-			if (is_array($value))
-			{
-				$is_array = !is_int($key);
-				$k = $is_array ? $key : $this->_singular($node);
-				$xml .= $this->_build_xml($value, $k, $is_array);
-			}
-			else
-			{
-				$xml .= $this->_xml_tag(is_int($key) ? $this->_singular($node) : $key, $value);
-			}
-		}
-		
-		return $xml . "</$node>";
 	}
 	
 	private function _singular($noun)
@@ -265,11 +217,11 @@ class Zendesk
 		else
 			$root = $this->_singular($page);
 						
-		$args['data'] = $this->_build_xml($args['details'], $root);
-		
-		$this->_request_force_xml($page, $args, 'POST');
+		$args['data'] = json_encode(array($root => $args['details']));
+
+		$this->_request($page, $args, 'POST');
 		if ($this->result['code'] == 201) {
-			if (preg_match("!https?://{$this->account}.zendesk.com/$page/#?(\d+)!i", $this->result['header'], $match))
+			if (preg_match("!https?://{$this->account}/api/v2/$page/#?(\d+)!i", $this->result['header'], $match))
 				return $match[1];
 			// regexp failed, this is not good and shouldn't happen, but I don't want to return false...
 			return true;
@@ -283,11 +235,11 @@ class Zendesk
 		if (!isset($args['details'])) trigger_error($page . ' details are required');
 		
 		if ($page == ZENDESK_REQUESTS || ($page == ZENDESK_TICKETS && isset($args['details']['value'])))
-			$args['data'] = $this->_build_xml($args['details'], 'comment');
+			$args['data'] = json_encode(array('comment' => $args['details']));
 		else
-			$args['data'] = $this->_build_xml($args['details'], $this->_singular($page)); 
+			$args['data'] = json_encode(array($this->_singular($page) => $args['details']));
 		
-		return $this->_request_force_xml($page, $args, 'PUT') == 200;
+		return $this->_request($page, $args, 'PUT') == 200;
 	}
 	
 	function delete($page, $args)
@@ -295,6 +247,6 @@ class Zendesk
 		if (isset($args) && !is_array($args)) $args = array('id' => $args);
 		if (!isset($args['id'])) trigger_error($page . ' id is required');
 		
-		return $this->_request_force_xml($page, $args, 'DELETE') == 200;
+		return $this->_request($page, $args, 'DELETE') == 200;
 	}
 }
